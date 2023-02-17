@@ -59,12 +59,10 @@ export const handler: APIGatewayProxyHandler = async (event)=>{
   const certificate = compileTemplate(data)
 
   const browser = await chromium.puppeteer.launch({
+    headless: true,
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
     executablePath: await chromium.executablePath,
-    headless: true,
-    ignoreHTTPSErrors: true,
-    userDataDir: process.env.IS_OFFLINE ? '/dev/null' : undefined
   })
 
   const page = await browser.newPage()
@@ -74,17 +72,17 @@ export const handler: APIGatewayProxyHandler = async (event)=>{
   const pdfPage = await page.pdf({
     format:'a4',
     landscape:true,
+    path: process.env.IS_OFFLINE ? "./certificate.pdf" : null,
     printBackground:true,
     preferCSSPageSize:true,
-    path: process.env.IS_OFFLINE ? "./certificate.pdf" : null,
   })
-  console.log(process.env.IS_OFFLINE)
+
   await browser.close()
 
   const s3 = new S3()
   
   await s3.putObject({
-    Bucket: "certifier-juliommen",
+    Bucket: process.env.BUCKET_NAME,
     Key:`${id}.pdf`,
     ACL:"public-read",
     Body:pdfPage,
@@ -96,7 +94,7 @@ export const handler: APIGatewayProxyHandler = async (event)=>{
     statusCode:201,
     body: JSON.stringify({
       message: 'Certificate created',
-      url: `https://certifier-juliommen.s3.amazonaws.com/${id}.pdf`
+      url: `https://${process.env.BUCKET_NAME}.s3.amazonaws.com/${id}.pdf`
     }),
   }
 }
